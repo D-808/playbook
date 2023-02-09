@@ -43,6 +43,18 @@ Output
     -of - Output file format. (json, html, md, csv, all)
 ```
 
+## gobuster
+```bash
+## dir Mode
+gobuster dir -u https://example.com -w ~/wordlists/shortlist.txt
+## With content length
+gobuster dir -u https://example.com -w ~/wordlists/shortlist.txt -l
+
+## dns Mode
+gobuster dns -d example.com -t 50 -w common-names.txt
+gobuster dns -d example.com -w ~/wordlists/subdomains.txt
+```
+
 ## Wpscan
 ```bash
 ## Basic usage

