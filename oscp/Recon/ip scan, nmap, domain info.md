@@ -4,13 +4,12 @@ for ip in $(seq 1 254); do ping -c 1 0.0.0.$ip > /dev/null; [ $? -eq 0 ] && echo
 ```
 
 ## nmap
-
 ```bash
 ## Scan IP range to see what hosts are up
 nmap -T5 -sP 192.168.0.0-255
 
 ## Check every port to see if open
-nmap --top-ports 65535 192.168.0.0
+nmap --top-ports 65535 0.0.0.0
 
 ## Find out more info about specific ports and save to .txt fil
 nmap -sC -sV -p 21,22,80,443 -oN nmap-results.txt 192.168.0.0
@@ -20,6 +19,10 @@ nmap -sU 0.0.0.0
 
 ## Scan Smb ports with scripts
 nmap --script smb-enum-shares -p 139,445 0.0.0.0
+
+## Run TCP (sT) scan on all 65535 ports (-p-), check service version (-sV) and only test the --open ports.
+nmap -p- -sT -sV  0.0.0.0 --open
+
 
 ## Linux executable (ELF) of nmap
 ## https://github.com/andrew-d/static-binaries/blob/master/binaries/linux/x86_64/nmap

