@@ -23,7 +23,6 @@ nmap --script smb-enum-shares -p 139,445 0.0.0.0
 ## Run TCP (sT) scan on all 65535 ports (-p-), check service version (-sV) and only test the --open ports.
 nmap -p- -sT -sV  0.0.0.0 --open
 
-
 ## Linux executable (ELF) of nmap
 ## https://github.com/andrew-d/static-binaries/blob/master/binaries/linux/x86_64/nmap
 ```

